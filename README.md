@@ -1,6 +1,6 @@
 # nanogpt-1
 
-A character-level GPT language model built completely from scratch in PyTorch, following Andrej Karpathy's ["Let's build GPT: from scratch, in code, spelled out"](https://www.youtube.com/watch?v=kCc8FmEb1nY) video. Trained on the Tiny Shakespeare dataset, it learns to generate new text, character by character, in the style of Shakespeare.
+A character-level GPT language model built completely from scratch in PyTorch. Trained on the Tiny Shakespeare dataset, it learns to generate new text, character by character, in the style of Shakespeare.
 
 This implementation is built up from first principles — no pretrained weights, no external transformer libraries — starting from a simple bigram model and progressively adding self-attention, multi-head attention, residual connections, and layer normalization until it becomes a small but complete GPT.
 
@@ -121,7 +121,7 @@ This will:
 2. Split it 90/10 into train/validation sets.
 3. Train for `max_iters` steps, printing train and validation loss every `eval_interval` steps.
 4. Generate 500 characters of sample text and print it to the console.
-5. Generate 10,000 characters of sample text and write it to `more.txt`.
+5. Generate 10,000 characters of sample text and write it to `output.txt`.
 
 Training this configuration (10M parameters, 5000 steps) takes roughly 15–20 minutes on a single consumer GPU (e.g. an RTX 4050/3060-class card); on CPU this would take on the order of many hours and is not recommended.
 
@@ -144,6 +144,44 @@ context = torch.zeros((1, 1), dtype=torch.long, device=device)
 print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
 ```
 
+## Sample output
+
+Here's an excerpt of actual generated text from `output.txt`, produced after training this model on Tiny Shakespeare:
+
+```
+QUEEN MARGARET:
+It was not yourself: hear me protector.
+
+DUKE KE OF YORK:
+YORK:
+What was the name of Montague's fear?
+
+DUKE OF AUMERLE:
+The greatiest thou that cause out of thy day.
+
+DUKE OF YORK:
+Live men, but thy days, for heart and blood.
+
+DUCHESS OF YORK:
+Thou, that does breath reets and straight to thee
+To for my broth happings of the whitest mind,
+Where mine absent,--threetsy villain--
+Thy torture is in the common noble duke.
+
+DUKE OF YORK:
+Doubt not with my sovereign crown?
+Where is thy heavil lady's ghost? may, brights too shrew it.
+
+KING HENRY VI:
+Why, so honest-if this child blood?
+How doth the lament with al appear,
+And stabb'd in the secret scards of this hornor?
+```
+
+Note what the model has and hasn't learned: it has clearly picked up Shakespearean *structure* — character names in all-caps followed by a colon, dialogue formatted in verse-like lines, archaic vocabulary and contractions (`'tis`, `doth`, `thou`, `-'d` verb endings) — purely from character-level patterns in the training text, with no explicit rules given about play formatting. What it has not learned is real semantic coherence: individual words are frequently misspelled or invented (`greatiest`, `hornor`, `heavil`), and sentences don't consistently make grammatical or narrative sense. This is expected for a ~10M-parameter character-level model trained on ~1MB of text — it's genuinely modeling *style*, not *meaning*, which is exactly the gap that scaling up (more parameters, more data, subword tokenization) starts to close, as explored further in "Let's reproduce GPT-2."
+
+See the full 10,000-character sample in [`output.txt`](output.txt).
+
 ## How training works, briefly
 
 - Random mini-batches of `block_size`-length character sequences are sampled from the training split (`get_batch`).
@@ -152,13 +190,4 @@ print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
 - Gradients are computed via backpropagation and the AdamW optimizer updates all model parameters.
 - Every `eval_interval` steps, train and validation loss are estimated (in `torch.no_grad()` mode, with the model temporarily switched to `.eval()`) to track overfitting.
 
-## Relationship to the "Let's build GPT" video
 
-This repository follows the video's progression: it starts as a plain bigram model (predicting the next character using only the current one, with no attention at all), then incrementally adds:
-1. A toy "average of all previous tokens" mechanism, to establish the idea of mixing information across time.
-2. Single-head self-attention, replacing that fixed averaging with learned, content-dependent weights.
-3. Multi-head attention.
-4. Feedforward layers, residual connections, and layer normalization, assembled into a full transformer block.
-5. Stacking multiple blocks into the final `GPTLanguageModel`.
-
-The weight initialization scheme (`_init_weights`, normal with `std=0.02`) mirrors GPT-2's own initialization, a detail the video calls out as not covered in the original walkthrough but worth including.
